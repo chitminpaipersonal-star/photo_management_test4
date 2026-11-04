@@ -37,6 +37,11 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
       - name: Auto Accept Android SDK Licenses
         run: |
           mkdir -p "$ANDROID_HOME/licenses" || true
@@ -49,32 +54,25 @@ jobs:
 
       - name: Prepare Capacitor Android Platform
         run: |
-          # If android folder is missing from the repository, add platform automatically
-          if [ ! -d "android" ]; then
-            echo "android/ directory not found in repository. Adding Android platform via Capacitor..."
+          # If android folder is missing or incomplete, add platform automatically
+          if [ ! -d "android" ] || [ ! -f "android/build.gradle" ]; then
+            echo "android/ platform missing or incomplete. Adding via Capacitor..."
             npx cap add android
           fi
 
           # Sync built web assets and native plugins into android project
           npx cap sync android
 
-      - name: Ensure Gradle Wrapper and Executable Permissions
-        run: |
-          # If gradlew is missing, regenerate wrapper
-          if [ ! -f "android/gradlew" ]; then
-            echo "android/gradlew missing. Generating gradle wrapper..."
-            sudo apt-get update && sudo apt-get install -y gradle
-            cd android
-            gradle wrapper || true
-            cd ..
-          fi
-
-          chmod +x android/gradlew
-          ls -la android/gradlew
-
       - name: Build APK with Gradle
         run: |
           cd android
+          # If gradlew wrapper is missing, generate it with installed Gradle 8.14.3
+          if [ ! -f "gradlew" ]; then
+            echo "gradlew not found. Generating wrapper with Gradle 8.14.3..."
+            gradle wrapper --gradle-version 8.14.3
+          fi
+
+          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Verify Generated APK
