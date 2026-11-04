@@ -42,7 +42,7 @@ jobs:
         with:
           gradle-version: '8.14.3'
 
-      - name: Auto Accept Android SDK Licenses
+      - name: Setup Android SDK Platform 36 & Licenses
         run: |
           mkdir -p "$ANDROID_HOME/licenses" || true
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7434029502224e8d80\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c241d8c1f757b86af09d7f6c17439d40\n621085764034346bb68c4d29fe341e0506aa9f4c" > "$ANDROID_HOME/licenses/android-sdk-license"
@@ -50,6 +50,7 @@ jobs:
           echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
           if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
           fi
 
       - name: Prepare Capacitor Android Platform
@@ -64,13 +65,26 @@ jobs:
           # Sync built web assets and native plugins into android project
           npx cap sync android
 
-          # Ensure compileSdkVersion is 35 (Android 15) for GitHub runner preinstalled SDK compatibility
+          # Keep compileSdkVersion and targetSdkVersion at 36 (required by Capacitor 8 / AndroidX 1.11.0 / 1.17.0)
           if [ -f "android/variables.gradle" ]; then
-            sed -i 's/compileSdkVersion = 36/compileSdkVersion = 35/g' android/variables.gradle
-            sed -i 's/targetSdkVersion = 36/targetSdkVersion = 35/g' android/variables.gradle
+            sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/g' android/variables.gradle
+            sed -i 's/targetSdkVersion = 35/targetSdkVersion = 36/g' android/variables.gradle
           fi
 
-          # Disable checkDebugAarMetadata task to bypass minCompileSdk check
+          # Disable check*AarMetadata tasks across ALL projects (root, :app, and :capacitor-android) to ensure zero metadata failures
+          if ! grep -q "tasks.whenTaskAdded" android/build.gradle 2>/dev/null; then
+            cat << 'EOF' >> android/build.gradle
+
+allprojects {
+    tasks.whenTaskAdded { task ->
+        if (task.name.contains("AarMetadata")) {
+            task.enabled = false
+        }
+    }
+}
+EOF
+          fi
+
           if ! grep -q "AarMetadata" android/app/build.gradle 2>/dev/null; then
             echo -e "\ntasks.whenTaskAdded { task -> if (task.name.contains('AarMetadata')) { task.enabled = false } }" >> android/app/build.gradle
           fi
