@@ -65,20 +65,17 @@ jobs:
           # Sync built web assets and native plugins into android project
           npx cap sync android
 
-          # Keep compileSdkVersion and targetSdkVersion at 36 (required by Capacitor 8 / AndroidX 1.11.0 / 1.17.0)
+          # Ensure compileSdkVersion and targetSdkVersion are set to 36 (required by Capacitor 8 / AndroidX 1.11.0 / 1.17.0)
           if [ -f "android/variables.gradle" ]; then
-            sed -i 's/compileSdkVersion = 35/compileSdkVersion = 36/g' android/variables.gradle
-            sed -i 's/targetSdkVersion = 35/targetSdkVersion = 36/g' android/variables.gradle
+            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/g' android/variables.gradle
+            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 36/g' android/variables.gradle
           fi
 
-          # Disable check*AarMetadata tasks across ALL projects (root, :app, and :capacitor-android) to ensure zero metadata failures
-          if ! grep -q "tasks.whenTaskAdded" android/build.gradle 2>/dev/null; then
-            echo -e "\nallprojects { tasks.whenTaskAdded { task -> if (task.name.contains('AarMetadata')) { task.enabled = false } } }" >> android/build.gradle
-          fi
-
-          if ! grep -q "AarMetadata" android/app/build.gradle 2>/dev/null; then
-            echo -e "\ntasks.whenTaskAdded { task -> if (task.name.contains('AarMetadata')) { task.enabled = false } }" >> android/app/build.gradle
-          fi
+          # Clean up any previously appended AarMetadata disable hooks that broke bundleDebugAar input directory validation
+          sed -i '/tasks.whenTaskAdded/d' android/build.gradle 2>/dev/null || true
+          sed -i '/AarMetadata/d' android/build.gradle 2>/dev/null || true
+          sed -i '/tasks.whenTaskAdded/d' android/app/build.gradle 2>/dev/null || true
+          sed -i '/AarMetadata/d' android/app/build.gradle 2>/dev/null || true
 
           # Suppress unsupported compileSdk warnings in gradle.properties
           if [ -f "android/gradle.properties" ]; then
