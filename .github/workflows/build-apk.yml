@@ -54,9 +54,10 @@ jobs:
 
       - name: Prepare Capacitor Android Platform
         run: |
-          # If android folder is missing or incomplete, add platform automatically
-          if [ ! -d "android" ] || [ ! -f "android/build.gradle" ]; then
-            echo "android/ platform missing or incomplete. Adding via Capacitor..."
+          # If android folder is missing or incomplete (e.g. missing variables.gradle or gradlew), recreate clean platform
+          if [ ! -f "android/variables.gradle" ] || [ ! -f "android/gradlew" ]; then
+            echo "android/ directory is missing or incomplete. Recreating clean Android platform via Capacitor..."
+            rm -rf android
             npx cap add android
           fi
 
@@ -69,17 +70,13 @@ jobs:
             sed -i 's/targetSdkVersion = 36/targetSdkVersion = 35/g' android/variables.gradle
           fi
 
+          chmod +x android/gradlew
+
       - name: Build APK with Gradle
         run: |
           cd android
-          # Run assembleDebug via gradlew if present, or directly via installed Gradle 8.14.3
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            ./gradlew assembleDebug --stacktrace --no-daemon
-          else
-            echo "gradlew script not found, building directly with Gradle 8.14.3..."
-            gradle assembleDebug --stacktrace --no-daemon
-          fi
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Verify Generated APK
         run: |
