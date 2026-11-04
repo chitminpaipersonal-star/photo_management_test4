@@ -53,29 +53,12 @@ jobs:
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
           fi
 
-      - name: Prepare Capacitor Android Platform
+      - name: Prepare Clean Capacitor Android Platform
         run: |
-          # If android folder is missing or incomplete (e.g. missing variables.gradle or gradlew), recreate clean platform
-          if [ ! -f "android/variables.gradle" ] || [ ! -f "android/gradlew" ]; then
-            echo "android/ directory is missing or incomplete. Recreating clean Android platform via Capacitor..."
-            rm -rf android
-            npx cap add android
-          fi
-
-          # Sync built web assets and native plugins into android project
+          # Always regenerate a fresh, clean Android platform so any corrupted files or leftover syntax errors are completely eliminated
+          rm -rf android
+          npx cap add android
           npx cap sync android
-
-          # Ensure compileSdkVersion and targetSdkVersion are set to 36 (required by Capacitor 8 / AndroidX 1.11.0 / 1.17.0)
-          if [ -f "android/variables.gradle" ]; then
-            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/g' android/variables.gradle
-            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 36/g' android/variables.gradle
-          fi
-
-          # Clean up any previously appended AarMetadata disable hooks that broke bundleDebugAar input directory validation
-          sed -i '/tasks.whenTaskAdded/d' android/build.gradle 2>/dev/null || true
-          sed -i '/AarMetadata/d' android/build.gradle 2>/dev/null || true
-          sed -i '/tasks.whenTaskAdded/d' android/app/build.gradle 2>/dev/null || true
-          sed -i '/AarMetadata/d' android/app/build.gradle 2>/dev/null || true
 
           # Suppress unsupported compileSdk warnings in gradle.properties
           if [ -f "android/gradle.properties" ]; then
