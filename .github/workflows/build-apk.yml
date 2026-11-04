@@ -63,17 +63,23 @@ jobs:
           # Sync built web assets and native plugins into android project
           npx cap sync android
 
+          # Ensure compileSdkVersion is 35 (Android 15) for GitHub runner preinstalled SDK compatibility
+          if [ -f "android/variables.gradle" ]; then
+            sed -i 's/compileSdkVersion = 36/compileSdkVersion = 35/g' android/variables.gradle
+            sed -i 's/targetSdkVersion = 36/targetSdkVersion = 35/g' android/variables.gradle
+          fi
+
       - name: Build APK with Gradle
         run: |
           cd android
-          # If gradlew wrapper is missing, generate it with installed Gradle 8.14.3
-          if [ ! -f "gradlew" ]; then
-            echo "gradlew not found. Generating wrapper with Gradle 8.14.3..."
-            gradle wrapper --gradle-version 8.14.3
+          # Run assembleDebug via gradlew if present, or directly via installed Gradle 8.14.3
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --stacktrace --no-daemon
+          else
+            echo "gradlew script not found, building directly with Gradle 8.14.3..."
+            gradle assembleDebug --stacktrace --no-daemon
           fi
-
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
 
       - name: Verify Generated APK
         run: |
